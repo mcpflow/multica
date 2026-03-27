@@ -150,6 +150,20 @@ func (s *TaskService) CompleteTask(ctx context.Context, taskID pgtype.UUID, resu
 		Result: result,
 	})
 	if err != nil {
+		// Log the current task state to help debug why the update matched no rows.
+		if existing, lookupErr := s.Queries.GetAgentTask(ctx, taskID); lookupErr == nil {
+			slog.Warn("complete task failed: task not in running state",
+				"task_id", util.UUIDToString(taskID),
+				"current_status", existing.Status,
+				"issue_id", util.UUIDToString(existing.IssueID),
+				"agent_id", util.UUIDToString(existing.AgentID),
+			)
+		} else {
+			slog.Warn("complete task failed: task not found",
+				"task_id", util.UUIDToString(taskID),
+				"lookup_error", lookupErr,
+			)
+		}
 		return nil, fmt.Errorf("complete task: %w", err)
 	}
 
@@ -183,6 +197,19 @@ func (s *TaskService) FailTask(ctx context.Context, taskID pgtype.UUID, errMsg s
 		Error: pgtype.Text{String: errMsg, Valid: true},
 	})
 	if err != nil {
+		if existing, lookupErr := s.Queries.GetAgentTask(ctx, taskID); lookupErr == nil {
+			slog.Warn("fail task failed: task not in running state",
+				"task_id", util.UUIDToString(taskID),
+				"current_status", existing.Status,
+				"issue_id", util.UUIDToString(existing.IssueID),
+				"agent_id", util.UUIDToString(existing.AgentID),
+			)
+		} else {
+			slog.Warn("fail task failed: task not found",
+				"task_id", util.UUIDToString(taskID),
+				"lookup_error", lookupErr,
+			)
+		}
 		return nil, fmt.Errorf("fail task: %w", err)
 	}
 

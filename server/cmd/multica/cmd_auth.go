@@ -207,6 +207,7 @@ func runAuthLoginBrowser(cmd *cobra.Command) error {
 	cfg, _ := cli.LoadCLIConfig()
 	cfg.Token = patResp.Token
 	cfg.ServerURL = serverURL
+	cfg.AppURL = appURL
 	if err := cli.SaveCLIConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}

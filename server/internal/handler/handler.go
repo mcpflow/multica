@@ -99,6 +99,34 @@ func requestUserID(r *http.Request) string {
 	return r.Header.Get("X-User-ID")
 }
 
+// resolveActor determines whether the request is from an agent or a human member.
+// If X-Agent-ID and X-Task-ID headers are both set, validates that the task
+// belongs to the claimed agent (defense-in-depth against manual header spoofing).
+// If only X-Agent-ID is set, validates that the agent belongs to the workspace.
+// Returns ("agent", agentID) on success, ("member", userID) otherwise.
+func (h *Handler) resolveActor(r *http.Request, userID, workspaceID string) (actorType, actorID string) {
+	agentID := r.Header.Get("X-Agent-ID")
+	if agentID == "" {
+		return "member", userID
+	}
+
+	// Validate the agent exists in the target workspace.
+	agent, err := h.Queries.GetAgent(r.Context(), parseUUID(agentID))
+	if err != nil || uuidToString(agent.WorkspaceID) != workspaceID {
+		return "member", userID
+	}
+
+	// When X-Task-ID is provided, cross-check that the task belongs to this agent.
+	if taskID := r.Header.Get("X-Task-ID"); taskID != "" {
+		task, err := h.Queries.GetAgentTask(r.Context(), parseUUID(taskID))
+		if err != nil || uuidToString(task.AgentID) != agentID {
+			return "member", userID
+		}
+	}
+
+	return "agent", agentID
+}
+
 func requireUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
 	userID := requestUserID(r)
 	if userID == "" {

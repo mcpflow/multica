@@ -6,8 +6,10 @@ import {
   useImperativeHandle,
   useRef,
 } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, ReactNodeViewRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { common, createLowlight } from "lowlight";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
 import Typography from "@tiptap/extension-typography";
@@ -20,7 +22,10 @@ import { Slice } from "@tiptap/pm/model";
 import { cn } from "@/lib/utils";
 import type { UploadResult } from "@/shared/hooks/use-file-upload";
 import { createMentionSuggestion } from "./mention-suggestion";
+import { CodeBlockView } from "./code-block-view";
 import "./rich-text-editor.css";
+
+const lowlight = createLowlight(common);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -163,8 +168,23 @@ function createMarkdownPasteExtension() {
 }
 
 // ---------------------------------------------------------------------------
-// File upload extension (paste + drop)
+// File upload extension (paste + drop) with blob URL instant preview
 // ---------------------------------------------------------------------------
+
+function removeImageBySrc(editor: ReturnType<typeof useEditor>, src: string) {
+  if (!editor) return;
+  const { tr } = editor.state;
+  let deleted = false;
+  editor.state.doc.descendants((node, pos) => {
+    if (deleted) return false;
+    if (node.type.name === "image" && node.attrs.src === src) {
+      tr.delete(pos, pos + node.nodeSize);
+      deleted = true;
+      return false;
+    }
+  });
+  if (deleted) editor.view.dispatch(tr);
+}
 
 function createFileUploadExtension(
   onUploadFileRef: React.RefObject<((file: File) => Promise<UploadResult | null>) | undefined>,
@@ -181,28 +201,67 @@ function createFileUploadExtension(
         let handled = false;
         for (const file of Array.from(files)) {
           handled = true;
-          try {
-            const result = await handler(file);
-            if (!result) continue;
+          const isImage = file.type.startsWith("image/");
 
-            const isImage = file.type.startsWith("image/");
-            if (isImage) {
+          if (isImage) {
+            // Instant preview via blob URL, then replace with real URL after upload
+            const blobUrl = URL.createObjectURL(file);
+            if (pos !== undefined) {
               editor
                 .chain()
                 .focus()
-                .setImage({ src: result.link, alt: result.filename })
+                .insertContentAt(pos, {
+                  type: "image",
+                  attrs: { src: blobUrl, alt: file.name },
+                })
                 .run();
             } else {
-              // Insert as a markdown link
+              editor
+                .chain()
+                .focus()
+                .setImage({ src: blobUrl, alt: file.name })
+                .run();
+            }
+
+            try {
+              const result = await handler(file);
+              if (result) {
+                const { tr } = editor.state;
+                editor.state.doc.descendants((node, nodePos) => {
+                  if (
+                    node.type.name === "image" &&
+                    node.attrs.src === blobUrl
+                  ) {
+                    tr.setNodeMarkup(nodePos, undefined, {
+                      ...node.attrs,
+                      src: result.link,
+                      alt: result.filename,
+                    });
+                  }
+                });
+                editor.view.dispatch(tr);
+              } else {
+                removeImageBySrc(editor, blobUrl);
+              }
+            } catch {
+              removeImageBySrc(editor, blobUrl);
+            } finally {
+              URL.revokeObjectURL(blobUrl);
+            }
+          } else {
+            // Non-image: upload first, then insert link
+            try {
+              const result = await handler(file);
+              if (!result) continue;
               const linkText = `[${result.filename}](${result.link})`;
               if (pos !== undefined) {
                 editor.chain().focus().insertContentAt(pos, linkText).run();
               } else {
                 editor.chain().focus().insertContent(linkText).run();
               }
+            } catch {
+              // Upload errors handled by the hook/caller via toast
             }
-          } catch {
-            // Upload errors handled by the hook/caller via toast
           }
         }
         return handled;
@@ -270,7 +329,13 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
         StarterKit.configure({
           heading: { levels: [1, 2, 3] },
           link: false,
+          codeBlock: false,
         }),
+        CodeBlockLowlight.extend({
+          addNodeView() {
+            return ReactNodeViewRenderer(CodeBlockView);
+          },
+        }).configure({ lowlight }),
         Placeholder.configure({
           placeholder: placeholderText,
         }),

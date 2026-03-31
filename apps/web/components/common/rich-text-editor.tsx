@@ -87,15 +87,17 @@ const MentionExtension = Mention.configure({
   suggestion: createMentionSuggestion(),
 }).extend({
   renderHTML({ node, HTMLAttributes }) {
+    const type = node.attrs.type ?? "member";
+    const prefix = type === "issue" ? "" : "@";
     return [
       "a",
       {
         ...HTMLAttributes,
-        href: `mention://${node.attrs.type ?? "member"}/${node.attrs.id}`,
-        "data-mention-type": node.attrs.type ?? "member",
+        href: `mention://${type}/${node.attrs.id}`,
+        "data-mention-type": type,
         "data-mention-id": node.attrs.id,
       },
-      `@${node.attrs.label ?? node.attrs.id}`,
+      `${prefix}${node.attrs.label ?? node.attrs.id}`,
     ];
   },
   addAttributes() {
@@ -111,8 +113,10 @@ const MentionExtension = Mention.configure({
     return {
       markdown: {
         serialize(state: { write: (s: string) => void }, node: { attrs: { label?: string; type?: string; id?: string } }) {
+          const type = node.attrs.type ?? "member";
+          const prefix = type === "issue" ? "" : "@";
           state.write(
-            `[@${node.attrs.label ?? node.attrs.id}](mention://${node.attrs.type ?? "member"}/${node.attrs.id})`,
+            `[${prefix}${node.attrs.label ?? node.attrs.id}](mention://${type}/${node.attrs.id})`,
           );
         },
         parse: {},

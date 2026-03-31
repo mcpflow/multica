@@ -58,8 +58,28 @@ function createComponents(
   const baseComponents: Partial<Components> = {
     // Links: Make clickable with callbacks, or render as mention
     a: ({ href, children }) => {
-      // Mention links: mention://member/id or mention://agent/id
+      // Mention links: mention://member/id, mention://agent/id, mention://issue/id
       if (href?.startsWith('mention://')) {
+        // Issue mentions render as clickable links to the issue page
+        if (href.startsWith('mention://issue/')) {
+          const issueId = href.replace('mention://issue/', '')
+          return (
+            <a
+              href={`/issues/${issueId}`}
+              className="text-primary font-medium hover:underline cursor-pointer"
+              style={{ background: 'color-mix(in srgb, var(--primary) 8%, transparent)', padding: '0 0.2em', borderRadius: 'calc(var(--radius) * 0.5)' }}
+              onClick={(e) => {
+                if (onUrlClick) {
+                  e.preventDefault()
+                  onUrlClick(`/issues/${issueId}`)
+                }
+              }}
+            >
+              {children}
+            </a>
+          )
+        }
+        // Member/agent mentions render as styled spans
         return (
           <span
             className="text-primary font-medium"

@@ -15,12 +15,12 @@ import (
 
 // mention represents a parsed @mention from markdown content.
 type mention struct {
-	Type string // "member" or "agent"
-	ID   string // user_id or agent_id
+	Type string // "member", "agent", or "issue"
+	ID   string // user_id, agent_id, or issue_id
 }
 
-// mentionRe matches [@Label](mention://type/id) in markdown.
-var mentionRe = regexp.MustCompile(`\[@[^\]]*\]\(mention://(member|agent)/([0-9a-fA-F-]+)\)`)
+// mentionRe matches [@Label](mention://type/id) or [Label](mention://type/id) in markdown.
+var mentionRe = regexp.MustCompile(`\[@?[^\]]*\]\(mention://(member|agent|issue)/([0-9a-fA-F-]+)\)`)
 
 // statusLabels maps DB status values to human-readable labels for notifications.
 var statusLabels = map[string]string{

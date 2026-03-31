@@ -6,10 +6,11 @@ import {
   useImperativeHandle,
   useState,
 } from "react";
-import { Bot } from "lucide-react";
+import { Bot, CircleDot } from "lucide-react";
 import { ReactRenderer } from "@tiptap/react";
 import { computePosition, offset, flip, shift } from "@floating-ui/dom";
 import { useWorkspaceStore } from "@/features/workspace";
+import { useIssueStore } from "@/features/issues";
 import type { SuggestionOptions, SuggestionProps } from "@tiptap/suggestion";
 
 // ---------------------------------------------------------------------------
@@ -19,7 +20,7 @@ import type { SuggestionOptions, SuggestionProps } from "@tiptap/suggestion";
 export interface MentionItem {
   id: string;
   label: string;
-  type: "member" | "agent";
+  type: "member" | "agent" | "issue";
 }
 
 interface MentionListProps {
@@ -84,7 +85,11 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
             }`}
             onClick={() => selectItem(index)}
           >
-            {item.type === "agent" ? (
+            {item.type === "issue" ? (
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <CircleDot className="h-3 w-3" />
+              </span>
+            ) : item.type === "agent" ? (
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info/10 text-info">
                 <Bot className="h-3 w-3" />
               </span>
@@ -117,6 +122,7 @@ export function createMentionSuggestion(): Omit<
   return {
     items: ({ query }) => {
       const { members, agents } = useWorkspaceStore.getState();
+      const { issues } = useIssueStore.getState();
       const q = query.toLowerCase();
 
       const memberItems: MentionItem[] = members
@@ -131,7 +137,20 @@ export function createMentionSuggestion(): Omit<
         .filter((a) => a.name.toLowerCase().includes(q))
         .map((a) => ({ id: a.id, label: a.name, type: "agent" as const }));
 
-      return [...memberItems, ...agentItems].slice(0, 10);
+      const issueItems: MentionItem[] = issues
+        .filter(
+          (i) =>
+            i.identifier.toLowerCase().includes(q) ||
+            i.title.toLowerCase().includes(q),
+        )
+        .slice(0, 5)
+        .map((i) => ({
+          id: i.id,
+          label: `${i.identifier} ${i.title}`,
+          type: "issue" as const,
+        }));
+
+      return [...memberItems, ...agentItems, ...issueItems].slice(0, 10);
     },
 
     render: () => {

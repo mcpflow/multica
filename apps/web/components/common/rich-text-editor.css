@@ -213,3 +213,15 @@
   text-decoration: line-through;
   color: var(--muted-foreground);
 }
+
+/* Uploading image placeholder (blob: URLs = in-flight uploads) */
+.rich-text-editor img[src^="blob:"] {
+  opacity: 0.5;
+  border-radius: var(--radius);
+  animation: rte-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes rte-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.3; }
+}

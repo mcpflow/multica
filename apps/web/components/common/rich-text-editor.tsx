@@ -16,6 +16,7 @@ import Image from "@tiptap/extension-image";
 import { Markdown } from "@tiptap/markdown";
 import { Extension, mergeAttributes } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Slice } from "@tiptap/pm/model";
 import { cn } from "@/lib/utils";
 import type { UploadResult } from "@/shared/hooks/use-file-upload";
 import { createMentionSuggestion } from "./mention-suggestion";
@@ -125,6 +126,38 @@ function createSubmitExtension(onSubmit: () => void) {
           return true;
         },
       };
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Markdown paste extension — parse pasted markdown text as rich text
+// ---------------------------------------------------------------------------
+
+function createMarkdownPasteExtension() {
+  return Extension.create({
+    name: "markdownPaste",
+    addProseMirrorPlugins() {
+      const { editor } = this;
+      return [
+        new Plugin({
+          key: new PluginKey("markdownPaste"),
+          props: {
+            clipboardTextParser(text, _context, plainText) {
+              if (!plainText && editor.markdown) {
+                const json = editor.markdown.parse(text);
+                const node = editor.schema.nodeFromJSON(json);
+                return Slice.maxOpen(node.content);
+              }
+              // Plain text fallback
+              const p = editor.schema.nodes.paragraph!;
+              const doc = editor.schema.nodes.doc!;
+              const paragraph = p.create(null, text ? editor.schema.text(text) : undefined);
+              return new Slice(doc.create(null, paragraph).content, 0, 0);
+            },
+          },
+        }),
+      ];
     },
   });
 }
@@ -250,6 +283,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
           HTMLAttributes: { style: "max-width: 100%; height: auto;" },
         }),
         Markdown,
+        createMarkdownPasteExtension(),
         createSubmitExtension(() => onSubmitRef.current?.()),
         createFileUploadExtension(onUploadFileRef),
       ],

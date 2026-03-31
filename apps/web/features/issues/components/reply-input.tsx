@@ -2,7 +2,6 @@
 
 import { useRef, useState, useEffect } from "react";
 import { ArrowUp, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { RichTextEditor, type RichTextEditorRef } from "@/components/common/rich-text-editor";
 import { FileUploadButton } from "@/components/common/file-upload-button";
 import { ActorAvatar } from "@/components/common/actor-avatar";
@@ -77,7 +76,7 @@ function ReplyInput({
   const avatarSize = size === "sm" ? 22 : 28;
 
   return (
-    <div className="flex items-start gap-2.5">
+    <div className="group/editor flex items-start gap-2.5">
       <ActorAvatar
         actorType={avatarType}
         actorId={avatarId}
@@ -103,7 +102,7 @@ function ReplyInput({
             />
           </div>
         </div>
-        <div className="absolute bottom-0 right-0 flex items-center gap-1">
+        <div className="absolute bottom-0 right-0 flex items-center gap-1 text-muted-foreground transition-colors group-focus-within/editor:text-foreground">
           <FileUploadButton
             size="sm"
             onUpload={handleUpload}
@@ -112,17 +111,18 @@ function ReplyInput({
             }
             disabled={uploading}
           />
-          <Button
-            size="icon-xs"
+          <button
+            type="button"
             disabled={isEmpty || submitting}
             onClick={handleSubmit}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
             {submitting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <ArrowUp className="h-3.5 w-3.5" />
             )}
-          </Button>
+          </button>
         </div>
       </div>
     </div>
